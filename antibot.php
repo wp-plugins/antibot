@@ -149,7 +149,7 @@ function antibot_settings()
 	<?php settings_fields('ab-settings-group'); ?>
 	<p><b><?php _e('default blocked bots:','antibot')?></b></p>
 	<textarea rows="4" cols="100" name="blockedua" readonly><?php echo get_option("defaultblockedua");?></textarea><br/>	
-	<p><b><?php _e('add additional bots(comma seperated) you want to block:','antibot')?></b></p>
+	<p><b><?php _e('add additional bots(by specifying feature string of user agent of the bots, comma seperated) you want to block:','antibot')?></b></p>
 	<textarea rows="4" cols="100" name="userblockedua" ><?php echo get_option("userblockedua");?></textarea><br/>
 	<p><b><?php _e('exclude the bots from the default blocked bots(i.e. the following bots will not be blocked):','antibot')?></b></p>
 	<textarea rows="4" cols="100" name="userexcludedua" readonly><?php echo get_option("userexcludedua");?></textarea><br/>
