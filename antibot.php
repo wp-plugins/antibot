@@ -211,7 +211,7 @@ function ab_activate()
 	$abstatstable=$wpdb->prefix."ab_stats";
 	$cc="";
 	if (!empty($wpdb->charset)) $cc="default character set $wpdb->charset";
-	$sql[]="create table ".$abstatstable." (ua varchar(512) not null primary key, visits int not null default 0) $cc;";
+	$sql[]="CREATE TABLE ".$abstatstable." (ua varchar(512) not null primary key, visits int not null default 0) $cc;";
 	require_once(ABSPATH.'wp-admin/includes/upgrade.php');
 	dbDelta($sql);
 	
