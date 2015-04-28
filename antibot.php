@@ -29,6 +29,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 $antibotsig="antibot 1.0";
 $version="1.0";
 $ua=$_SERVER['HTTP_USER_AGENT'];
+$ip = preg_replace( '/[^0-9a-fA-F:., ]/', '',$_SERVER['REMOTE_ADDR'] );
+$referer=isset( $_SERVER['HTTP_REFERER'] ) ? substr( $_SERVER['HTTP_REFERER'], 0, 254 ) : '';
 $options=get_option('defaultblockedua');
 if($options)
 {
@@ -38,8 +40,19 @@ if($options)
 	$userblockedua=explode(',',$userblockedua);
 	$userexcludedua=trim(get_option('userexcludedua'));
 	$userexcludedua=explode(',',$userexcludedua);
+
+	$defaultblockedreferer=trim(get_option('defaultblockedreferer'));
+	$defaultblockedreferer=explode(',',$defaultblockedreferer);	
+	$userblockedreferer=trim(get_option('userblockedreferer'));
+	$userblockedreferer=explode(',',$userblockedreferer);
+	$userexcludedreferer=trim(get_option('userexcludedreferer'));
+	$userexcludedreferer=explode(',',$userexcludedreferer);
+	
+	$userblockedip=trim(get_option('userblockedip'));
+	$userblockedip=explode(',',$userblockedip);
 	
 	$blockit=false;
+	$blockreason="";
 
 	foreach($defaultblockedua as $blockedua)
 	{
@@ -48,6 +61,7 @@ if($options)
 		if(preg_match('/'.$blockedua.'/i',$ua))
 		{
 			$blockit=true;
+			$blockreason="ua";
 			break;
 		}
 	}
@@ -58,9 +72,46 @@ if($options)
 		if(preg_match('/'.$blockedua.'/i',$ua))
 		{
 			$blockit=true;
+			$blockreason="ua";
 			break;
 		}
 	}
+	
+	foreach($defaultblockedreferer as $blockedreferer)
+	{
+		$blockedreferer=trim($blockedreferer);
+		if(empty($blockedreferer)) continue;
+		if(preg_match('/'.$blockedreferer.'/i',$referer))
+		{
+			$blockit=true;
+			$blockreason="referer";
+			break;
+		}
+	}
+	foreach($userblockedreferer as $blockedreferer)
+	{
+		$blockedreferer=trim($blockedreferer);
+		if(empty($blockedreferer)) continue;
+		if(preg_match('/'.$blockedreferer.'/i',$referer))
+		{
+			$blockit=true;
+			$blockreason="referer";
+			break;
+		}
+	}
+
+	foreach($userblockedip as $blockedip)
+	{
+		$blockedip=trim($blockedip);
+		if(empty($blockedip)) continue;
+		if(preg_match('/'.$blockedip.'/i',$ip))
+		{
+			$blockit=true;
+			$blockreason="ip";
+			break;
+		}
+	}
+	
 	if($blockit)
 	{
 		
@@ -74,6 +125,20 @@ if($options)
 				break;
 			}
 		}
+		
+		if($blockit)
+		{
+			foreach($userexcludedreferer as $excludedreferer)
+			{
+				$excludedreferer=trim($excludedreferer);
+				if(empty($excludedreferer)) continue;
+				if(preg_match('/'.$excludedreferer.'/i',$referer))
+				{
+					$blockit=false;
+					break;
+				}
+			}
+		}
 	}
 	
 	
@@ -82,16 +147,17 @@ if($options)
 
 		global $wpdb;
 		$abstatstable=$wpdb->prefix."ab_stats";
-		$result=$wpdb->get_results("select * from $abstatstable where ua='$ua'");
+		$result=$wpdb->get_results("select * from $abstatstable where ua='${$reason}'");
+
 		$visits=1;
 		if($result)
 		{
 			$visits=$result[0]->visits+1;
-			$wpdb->query("update $abstatstable set visits=$visits where ua='$ua'");
+			$wpdb->query("update $abstatstable set visits=$visits where ua='${$reason}'");
 		}
 		else
 		{
-			$wpdb->query("insert into $abstatstable values('$ua',$visits)");
+			$wpdb->query("insert into $abstatstable values('${$reason}',$visits)");
 		}
 		exit();
 
@@ -121,6 +187,17 @@ else
 	$userexcludedua="";
 	add_option('userexcludedua',$userexcludedua);
 
+	$defaultblockedreferer="semalt.com";
+	add_option('defaultblockedreferer',$defaultblockedreferer);
+	
+	$userblockedreferer="";
+	add_option('userblockedreferer',$userblockedreferer);
+	$userexcludedreferer="";
+	add_option('userexcludedreferer',$userexcludedreferer);
+	
+	$userblockedip="";
+	add_option('userblockedip',$userblockedip);
+	
 	$absig='antibot 1.0';
 	add_option('absig',$absig);
 }
@@ -147,12 +224,20 @@ function antibot_settings()
 ?>
 	<form id="settings" method="post" action="options.php" >	
 	<?php settings_fields('ab-settings-group'); ?>
-	<p><b><?php _e('default blocked bots:','antibot')?></b></p>
+	<p><b><?php _e('default blocked user agents:','antibot')?></b></p>
 	<textarea rows="4" cols="100" name="blockedua" readonly><?php echo get_option("defaultblockedua");?></textarea><br/>	
-	<p><b><?php _e('add additional bots(by specifying feature string of user agent of the bots, comma seperated) you want to block:','antibot')?></b></p>
+	<p><b><?php _e('add additional user agents(by specifying the feature string of the user agent of the bots, comma separated) you want to block(you can find the user agents in the Latest Visitors report in your CPanel. No need to copy the full user agent string. Part of it is enough for antibot to catch them):','antibot')?></b></p>
 	<textarea rows="4" cols="100" name="userblockedua" ><?php echo get_option("userblockedua");?></textarea><br/>
-	<p><b><?php _e('exclude the bots from the default blocked bots(i.e. the following bots will not be blocked):','antibot')?></b></p>
-	<textarea rows="4" cols="100" name="userexcludedua" readonly><?php echo get_option("userexcludedua");?></textarea><br/>
+	<p><b><?php _e('exclude the user agents from the default blocked user agents(i.e. the following user agents will not be blocked):','antibot')?></b></p>
+	<textarea rows="4" cols="100" name="userexcludedua"><?php echo get_option("userexcludedua");?></textarea><br/>
+	<p><b><?php _e('default blocked referers:','antibot')?></b></p>
+	<textarea rows="4" cols="100" name="blockedreferer" readonly><?php echo get_option("defaultblockedreferer");?></textarea><br/>	
+	<p><b><?php _e('add additional referers(by specifying feature string of referers, comma separated) you want to block(you can find the referer urls in the Latest Visitors report or in the "Links from an external page" section of the awstats report in your CPanel. No need to copy the full string of the referers. Part of the referer url is enough for antibot to catch them):','antibot')?></b></p>
+	<textarea rows="4" cols="100" name="userblockedreferer" ><?php echo get_option("userblockedreferer");?></textarea><br/>
+	<p><b><?php _e('exclude the referers from the default blocked referers(i.e. the following referers will not be blocked):','antibot')?></b></p>
+	<textarea rows="4" cols="100" name="userexcludedreferer"><?php echo get_option("userexcludedreferer");?></textarea><br/>
+	<p><b><?php _e('add ip addresses(comma separated) you want to block:','antibot')?></b></p>
+	<textarea rows="4" cols="100" name="userblockedip" ><?php echo get_option("userblockedip");?></textarea><br/>
 	<input type="submit" class="button-primary"  name="update" value="Update"/>	
 
 	</form>	
@@ -163,6 +248,9 @@ function register_absettings()
 {
 	register_setting('ab-settings-group', 'userblockedua');
 	register_setting('ab-settings-group', 'userexcludedua');
+	register_setting('ab-settings-group', 'userblockedreferer');
+	register_setting('ab-settings-group', 'userexcludedreferer');	
+	register_setting('ab-settings-group', 'userblockedip');
 }
 
 function antibot_reports()
@@ -249,6 +337,8 @@ function ab_updateoptions()
 		update_option('defaultblockedua',$resp['defaultblockedua']);
 	if($resp['defaultnonblockedua'])
 		update_option('defaultnonblockedua',$resp['defaultnonblockedua']);
+	if($resp['defaultblockedreferer'])
+		update_option('defaultblockedreferer',$resp['defaultblockedreferer']);		
 	if($resp['absig'])
 		update_option('absig',$resp['absig']);
 }
